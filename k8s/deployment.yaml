@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-assessment
+  labels:
+    app: mcp-assessment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-assessment
+  template:
+    metadata:
+      labels:
+        app: mcp-assessment
+    spec:
+      containers:
+        - name: mcp-assessment
+          image: localhost:5000/mcp-assessment:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-assessment-secret
+                  key: OPENAI_API_KEY
+            - name: PORT
+              value: "8000"
+            - name: HOST
+              value: "0.0.0.0"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
