@@ -8,6 +8,7 @@ import os
 from unittest.mock import AsyncMock, MagicMock, patch, Mock
 from openai import AsyncOpenAI
 from src.core.llm_client import LLMClient, get_llm_client, ChatCompletionInput, Message
+from src.core import llm_client as llm_client_module
 
 
 class TestLLMClient:
@@ -30,7 +31,7 @@ class TestLLMClient:
     
     def test_init_with_api_key(self, mock_api_key):
         """Test LLMClient initialization with explicit API key."""
-        with patch('llm_client.AsyncOpenAI') as mock_openai:
+        with patch('src.core.llm_client.AsyncOpenAI') as mock_openai:
             client = LLMClient(api_key=mock_api_key)
             
             assert client.api_key == mock_api_key
@@ -43,7 +44,7 @@ class TestLLMClient:
     def test_init_with_env_var(self, mock_api_key):
         """Test LLMClient initialization with environment variable."""
         with patch.dict(os.environ, {'OPENAI_API_KEY': mock_api_key}):
-            with patch('llm_client.AsyncOpenAI') as mock_openai:
+            with patch('src.core.llm_client.AsyncOpenAI') as mock_openai:
                 client = LLMClient()
                 
                 assert client.api_key == mock_api_key
@@ -57,14 +58,14 @@ class TestLLMClient:
     
     def test_init_with_custom_model(self, mock_api_key):
         """Test LLMClient initialization with custom model."""
-        with patch('llm_client.AsyncOpenAI'):
+        with patch('src.core.llm_client.AsyncOpenAI'):
             client = LLMClient(api_key=mock_api_key, model="gpt-4")
             assert client.model == "gpt-4"
     
     def test_init_with_base_url(self, mock_api_key):
         """Test LLMClient initialization with custom base URL."""
         base_url = "https://custom-api.example.com"
-        with patch('llm_client.AsyncOpenAI') as mock_openai:
+        with patch('src.core.llm_client.AsyncOpenAI') as mock_openai:
             client = LLMClient(api_key=mock_api_key, base_url=base_url)
             mock_openai.assert_called_once_with(
                 api_key=mock_api_key,
@@ -86,7 +87,7 @@ class TestLLMClient:
         
         mock_completions.create = AsyncMock(return_value=mock_response)
         
-        with patch('llm_client.AsyncOpenAI', return_value=mock_client):
+        with patch('src.core.llm_client.AsyncOpenAI', return_value=mock_client):
             client = LLMClient(api_key=mock_api_key)
             
             input_data = ChatCompletionInput(
@@ -113,7 +114,7 @@ class TestLLMClient:
         
         mock_completions.create = AsyncMock(return_value=mock_response)
         
-        with patch('llm_client.AsyncOpenAI', return_value=mock_client):
+        with patch('src.core.llm_client.AsyncOpenAI', return_value=mock_client):
             client = LLMClient(api_key=mock_api_key)
             
             input_data = ChatCompletionInput(
@@ -136,7 +137,7 @@ class TestLLMClient:
         
         mock_completions.create = AsyncMock(side_effect=Exception("API Error"))
         
-        with patch('llm_client.AsyncOpenAI', return_value=mock_client):
+        with patch('src.core.llm_client.AsyncOpenAI', return_value=mock_client):
             client = LLMClient(api_key=mock_api_key)
             
             input_data = ChatCompletionInput(
@@ -167,7 +168,7 @@ class TestLLMClient:
         
         mock_completions.create = AsyncMock(return_value=mock_stream())
         
-        with patch('llm_client.AsyncOpenAI', return_value=mock_client):
+        with patch('src.core.llm_client.AsyncOpenAI', return_value=mock_client):
             client = LLMClient(api_key=mock_api_key)
             
             input_data = ChatCompletionInput(
@@ -186,7 +187,7 @@ class TestLLMClient:
         
         mock_completions.create = AsyncMock(side_effect=Exception("Stream Error"))
         
-        with patch('llm_client.AsyncOpenAI', return_value=mock_client):
+        with patch('src.core.llm_client.AsyncOpenAI', return_value=mock_client):
             client = LLMClient(api_key=mock_api_key)
             
             input_data = ChatCompletionInput(
@@ -211,7 +212,7 @@ class TestLLMClient:
         
         mock_completions.create = AsyncMock(return_value=mock_response)
         
-        with patch('llm_client.AsyncOpenAI', return_value=mock_client):
+        with patch('src.core.llm_client.AsyncOpenAI', return_value=mock_client):
             client = LLMClient(api_key=mock_api_key)
             
             response = await client.chat_completion_simple("Hello")
@@ -236,7 +237,7 @@ class TestLLMClient:
         
         mock_completions.create = AsyncMock(return_value=mock_response)
         
-        with patch('llm_client.AsyncOpenAI', return_value=mock_client):
+        with patch('src.core.llm_client.AsyncOpenAI', return_value=mock_client):
             client = LLMClient(api_key=mock_api_key)
             
             response = await client.chat_completion_simple(
@@ -267,7 +268,7 @@ class TestLLMClient:
         
         mock_completions.create = AsyncMock(return_value=mock_response)
         
-        with patch('llm_client.AsyncOpenAI', return_value=mock_client):
+        with patch('src.core.llm_client.AsyncOpenAI', return_value=mock_client):
             client = LLMClient(api_key=mock_api_key)
             
             history = [
@@ -298,15 +299,14 @@ class TestGetLLMClient:
     @pytest.fixture(autouse=True)
     def reset_global_client(self):
         """Reset global client before each test."""
-        import llm_client
-        llm_client._client = None
+        llm_client_module._client = None
         yield
-        llm_client._client = None
+        llm_client_module._client = None
     
     def test_get_llm_client_creates_new_instance(self):
         """Test that get_llm_client creates a new instance."""
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-key'}):
-            with patch('llm_client.LLMClient') as mock_client_class:
+            with patch('src.core.llm_client.LLMClient') as mock_client_class:
                 mock_instance = MagicMock()
                 mock_client_class.return_value = mock_instance
                 
@@ -321,7 +321,7 @@ class TestGetLLMClient:
     def test_get_llm_client_with_custom_model(self):
         """Test get_llm_client with custom model."""
         with patch.dict(os.environ, {'OPENAI_API_KEY': 'test-key'}):
-            with patch('llm_client.LLMClient') as mock_client_class:
+            with patch('src.core.llm_client.LLMClient') as mock_client_class:
                 mock_instance = MagicMock()
                 mock_client_class.return_value = mock_instance
                 
@@ -334,7 +334,7 @@ class TestGetLLMClient:
     
     def test_get_llm_client_with_api_key(self):
         """Test get_llm_client with explicit API key."""
-        with patch('llm_client.LLMClient') as mock_client_class:
+        with patch('src.core.llm_client.LLMClient') as mock_client_class:
             mock_instance = MagicMock()
             mock_client_class.return_value = mock_instance
             

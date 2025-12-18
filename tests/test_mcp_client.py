@@ -8,6 +8,7 @@ import json
 import os
 from unittest.mock import AsyncMock, MagicMock, patch, Mock
 from src.core.mcp_client import MCPClient, get_mcp_client
+from src.core import mcp_client as mcp_client_module
 
 
 class TestMCPClient:
@@ -51,7 +52,7 @@ class TestMCPClient:
         }
         mock_response.raise_for_status = Mock()
         
-        with patch('mcp_client.requests.post', return_value=mock_response):
+        with patch('src.core.mcp_client.requests.post', return_value=mock_response):
             with patch('uuid.uuid4', return_value=Mock(__str__=lambda x: request_id)):
                 result = await mcp_client._send_jsonrpc_request("tools/list")
                 
@@ -82,8 +83,8 @@ class TestMCPClient:
         mock_response.headers = {"Content-Type": "text/event-stream"}
         mock_response.raise_for_status = Mock()
         
-        with patch('mcp_client.requests.post', return_value=mock_response):
-            with patch('mcp_client.SSEClient', return_value=mock_sse_client):
+        with patch('src.core.mcp_client.requests.post', return_value=mock_response):
+            with patch('src.core.mcp_client.SSEClient', return_value=mock_sse_client):
                 with patch('uuid.uuid4', return_value=Mock(__str__=lambda x: request_id)):
                     result = await mcp_client._send_jsonrpc_request("tools/list")
                     
@@ -104,7 +105,7 @@ class TestMCPClient:
         }
         mock_response.raise_for_status = Mock()
         
-        with patch('mcp_client.requests.post', return_value=mock_response):
+        with patch('src.core.mcp_client.requests.post', return_value=mock_response):
             with patch('uuid.uuid4', return_value=Mock(__str__=lambda x: request_id)):
                 with pytest.raises(Exception, match="MCP Error"):
                     await mcp_client._send_jsonrpc_request("tools/list")
@@ -116,7 +117,7 @@ class TestMCPClient:
         mock_response.headers = {"Content-Type": "text/plain"}
         mock_response.raise_for_status = Mock()
         
-        with patch('mcp_client.requests.post', return_value=mock_response):
+        with patch('src.core.mcp_client.requests.post', return_value=mock_response):
             with patch('uuid.uuid4', return_value=Mock(__str__=lambda x: "test-id")):
                 with pytest.raises(Exception, match="Unexpected Content-Type"):
                     await mcp_client._send_jsonrpc_request("tools/list")
@@ -140,8 +141,8 @@ class TestMCPClient:
         mock_response.headers = {"Content-Type": "text/event-stream"}
         mock_response.raise_for_status = Mock()
         
-        with patch('mcp_client.requests.post', return_value=mock_response):
-            with patch('mcp_client.SSEClient', return_value=mock_sse_client):
+        with patch('src.core.mcp_client.requests.post', return_value=mock_response):
+            with patch('src.core.mcp_client.SSEClient', return_value=mock_sse_client):
                 with patch('uuid.uuid4', return_value=Mock(__str__=lambda x: request_id)):
                     with pytest.raises(Exception, match="No response received"):
                         await mcp_client._send_jsonrpc_request("tools/list")
@@ -252,11 +253,10 @@ class TestGetMCPClient:
     @pytest.fixture(autouse=True)
     def reset_global_client(self):
         """Reset global client before each test."""
-        import mcp_client
-        mcp_client._client = None
+        mcp_client_module._client = None
         yield
-        mcp_client._client = None
-        if mcp_client._client is not None:
+        mcp_client_module._client = None
+        if mcp_client_module._client is not None:
             # Clean up if needed
             pass
     
@@ -264,7 +264,7 @@ class TestGetMCPClient:
     async def test_get_mcp_client_creates_new_instance(self):
         """Test that get_mcp_client creates a new instance."""
         with patch.dict(os.environ, {'MCP_SERVER_URL': 'https://test-server.com/mcp'}):
-            with patch('mcp_client.MCPClient') as mock_client_class:
+            with patch('src.core.mcp_client.MCPClient') as mock_client_class:
                 mock_instance = AsyncMock()
                 mock_instance.initialize = AsyncMock()
                 mock_client_class.return_value = mock_instance
@@ -285,7 +285,7 @@ class TestGetMCPClient:
         default_url = 'https://vipfapwm3x.us-east-1.awsapprunner.com/mcp'
         
         with patch.dict(os.environ, {}, clear=True):
-            with patch('mcp_client.MCPClient') as mock_client_class:
+            with patch('src.core.mcp_client.MCPClient') as mock_client_class:
                 mock_instance = AsyncMock()
                 mock_instance.initialize = AsyncMock()
                 mock_client_class.return_value = mock_instance
@@ -301,7 +301,7 @@ class TestGetMCPClient:
         custom_url = 'https://custom-server.com/mcp'
         
         with patch.dict(os.environ, {'MCP_SERVER_URL': custom_url}):
-            with patch('mcp_client.MCPClient') as mock_client_class:
+            with patch('src.core.mcp_client.MCPClient') as mock_client_class:
                 mock_instance = AsyncMock()
                 mock_instance.initialize = AsyncMock()
                 mock_client_class.return_value = mock_instance
@@ -366,8 +366,8 @@ class TestMCPClientIntegration:
         mock_response.headers = {"Content-Type": "text/event-stream"}
         mock_response.raise_for_status = Mock()
         
-        with patch('mcp_client.requests.post', return_value=mock_response):
-            with patch('mcp_client.SSEClient', return_value=mock_sse_client):
+        with patch('src.core.mcp_client.requests.post', return_value=mock_response):
+            with patch('src.core.mcp_client.SSEClient', return_value=mock_sse_client):
                 with patch('uuid.uuid4', return_value=Mock(__str__=lambda x: request_id)):
                     result = await client._send_jsonrpc_request("test/method")
                     

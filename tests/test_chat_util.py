@@ -631,4 +631,3 @@ class TestChatSessionIntegration:
         # Should handle invalid JSON gracefully (empty dict)
         mock_mcp_client.call_tool.assert_called_once_with("test_tool", {})
         assert response == "Done"
-

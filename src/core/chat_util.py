@@ -4,9 +4,8 @@ Chat utility that integrates LLM client with MCP client for tool calling.
 """
 
 import json
-import logging
 from typing import Optional, List, Dict, Any, AsyncIterator
-from .llm_client import (
+from src.core.llm_client import (
     get_llm_client, 
     LLMClient,
     Message,
@@ -15,10 +14,7 @@ from .llm_client import (
     ToolDefinition,
     FunctionDefinition
 )
-from .mcp_client import get_mcp_client, MCPClient
-
-# Set up logging
-logger = logging.getLogger(__name__)
+from src.core.mcp_client import get_mcp_client, MCPClient
 
 
 class ChatSession:
@@ -46,103 +42,30 @@ class ChatSession:
         self.llm_client = llm_client or get_llm_client()
         self.mcp_client = mcp_client
         self._mcp_tools_formatted: Optional[List[Dict[str, Any]]] = None
-        
-        # Customer authentication state
-        self.is_authenticated: bool = False
-        self.customer_info: Optional[Dict[str, Any]] = None
-        self.authentication_attempts: int = 0
     
     def _default_system_message(self) -> str:
         """Default system message for customer support."""
         return """You are a helpful customer support agent for a company that sells computer products including monitors, printers, computers, and accessories.
 
-AUTHENTICATION POLICY - IMPORTANT:
-
-Available WITHOUT authentication (anyone can use):
-- list_products: Browse products by category
-- search_products: Search for products by keyword
-- get_product: Get detailed product information by SKU
-- General questions and product information
-
-Requires AUTHENTICATION (must verify email + PIN first):
-- create_order: Place new orders
-- get_customer: View customer account information
-- get_order: View specific order details
-- list_orders: View order history
-
-AUTHENTICATION FLOW:
-1. When a user wants to place an order, view their account, or check orders:
-   - Ask for their registered email address and 4-digit PIN
-   - Use the verify_customer_pin tool to authenticate them
-   - Once verified, welcome them by name and proceed with their request
-
-2. For general browsing and product queries:
-   - NO authentication needed
-   - Help them immediately with product searches and information
-   - Only mention authentication when they want to place an order or view account/order info
-
 Your responsibilities:
-- Help ALL customers find products and get product information (no auth required)
+- Help customers find products they're looking for
 - Provide detailed product information (SKU, price, inventory, descriptions)
-- Assist with order placement (requires authentication)
-- Help with order tracking and account info (requires authentication)
+- Assist with order placement and tracking
+- Verify customer identity when needed
 - Provide excellent, friendly customer service
 
 Available product categories: Computers, Monitors, Printers, Accessories
 
 Guidelines:
-- Always be polite, professional, and friendly
-- DO NOT ask for authentication unless user wants to: place order, view account, or check orders
+- Always be polite and professional
 - Use the available tools to look up accurate, real-time information
 - Don't make up product details - always use the tools to get current data
+- If you need to verify a customer's identity, ask for their email and PIN
 - When creating orders, confirm all details with the customer first
 - Provide clear, concise responses
-- If authentication fails, politely ask them to verify their credentials and try again
-- Be helpful to everyone - authentication is only for sensitive operations
+- If a customer asks about a product, search for it or list products in that category
 
-Remember: Most users just want to browse and get information. Only require authentication for orders and account access!"""
-    
-    def _update_system_message_for_auth(self):
-        """Update system message after successful authentication."""
-        if self.is_authenticated and self.customer_info:
-            customer_name = self.customer_info.get("name", "Customer")
-            customer_email = self.customer_info.get("email", "")
-            customer_id = self.customer_info.get("customer_id", "")
-            
-            self.system_message = f"""You are a helpful customer support agent for a company that sells computer products including monitors, printers, computers, and accessories.
-
-AUTHENTICATED CUSTOMER SESSION:
-- Customer Name: {customer_name}
-- Customer Email: {customer_email}
-- Customer ID: {customer_id}
-- Authentication Status: VERIFIED ✓
-
-This customer can now:
-- Browse and search all products (Computers, Monitors, Printers, Accessories)
-- Get detailed product information
-- Place orders (use create_order tool with customer_id: {customer_id})
-- View their order history (use list_orders tool with customer_id: {customer_id})
-- View order details (use get_order tool)
-- View their account info (use get_customer tool with customer_id: {customer_id})
-
-Your responsibilities:
-- Address the customer by name ({customer_name}) when appropriate
-- Help them find products they're looking for
-- Provide detailed product information (SKU, price, inventory, descriptions)
-- Assist with order placement - ALWAYS use customer_id: {customer_id}
-- Track and view their orders
-- Provide excellent, friendly, personalized customer service
-
-Guidelines:
-- Always be polite, professional, and friendly
-- Use the available tools to look up accurate, real-time information
-- Don't make up product details - always use the tools to get current data
-- When creating orders, confirm all details with the customer first before calling create_order
-- IMPORTANT: Always use customer_id: {customer_id} for create_order, list_orders, and get_customer calls
-- Provide clear, concise responses
-- Remember: The customer is {customer_name} and their customer_id is {customer_id}
-
-Remember: You have access to real-time product inventory, customer data, and order management tools. Use them to provide excellent service!"""
+Remember: You have access to real-time product inventory, customer data, and order management tools. Use them!"""
     
     async def _get_mcp_client(self) -> MCPClient:
         """Get or initialize MCP client."""
@@ -219,26 +142,6 @@ Remember: You have access to real-time product inventory, customer data, and ord
         try:
             mcp = await self._get_mcp_client()
             result = await mcp.call_tool(tool_name, arguments)
-            
-            # Special handling for customer authentication
-            if tool_name == "verify_customer_pin":
-                self.authentication_attempts += 1
-                # Check if authentication was successful
-                if isinstance(result, dict) and "error" not in result:
-                    self.is_authenticated = True
-                    self.customer_info = result
-                    # Update system message to reflect authenticated state
-                    self._update_system_message_for_auth()
-                elif isinstance(result, str):
-                    # Try to parse string result
-                    try:
-                        parsed_result = json.loads(result)
-                        if isinstance(parsed_result, dict) and "error" not in parsed_result:
-                            self.is_authenticated = True
-                            self.customer_info = parsed_result
-                            self._update_system_message_for_auth()
-                    except:
-                        pass
             
             # Convert result to JSON string for LLM
             if isinstance(result, (dict, list)):
@@ -469,25 +372,12 @@ Remember: You have access to real-time product inventory, customer data, and ord
         })
     
     def reset(self):
-        """Reset conversation history and authentication for this session."""
+        """Reset conversation history for this session."""
         self.conversation_history = []
-        self.is_authenticated = False
-        self.customer_info = None
-        self.authentication_attempts = 0
-        # Reset system message to default
-        self.system_message = self._default_system_message()
     
     def get_history(self) -> List[Dict[str, Any]]:
         """Get conversation history."""
         return self.conversation_history.copy()
-    
-    def get_auth_state(self) -> Dict[str, Any]:
-        """Get authentication state."""
-        return {
-            "is_authenticated": self.is_authenticated,
-            "customer_info": self.customer_info,
-            "authentication_attempts": self.authentication_attempts
-        }
 
 
 # Global session storage
@@ -531,4 +421,3 @@ def delete_session(session_id: str):
 def get_all_sessions() -> Dict[str, "ChatSession"]:
     """Get all active sessions (for admin/debugging purposes)."""
     return _sessions.copy()
-
