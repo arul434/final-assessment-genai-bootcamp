@@ -1,0 +1,9 @@
+requests
+openai
+fastapi
+uvicorn[standard]
+python-dotenv
+httpx
+sseclient-py
+pytest
+pytest-asyncio
